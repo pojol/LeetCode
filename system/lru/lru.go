@@ -1,4 +1,4 @@
-package system
+package lru
 
 import (
 	"container/list"
