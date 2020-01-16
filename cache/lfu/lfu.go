@@ -2,6 +2,8 @@ package lfu
 
 import "container/list"
 
+import "fmt"
+
 // LFUCache  Least Frequently Used
 type LFUCache struct {
 	cap      int
@@ -14,12 +16,13 @@ type LFUCache struct {
 type cacheEntry struct {
 	key        int
 	value      int
-	freqParent *list.Element
+	freqParent *list.Element // 指向列的头节点
+	orderIndex *list.Element
 }
 
-type cacheFreq struct {
-	freq    int
-	entries map[*cacheEntry]byte // 存储频率链表中的每一项，确保不重复(set
+type freqNode struct {
+	freq      int
+	orderList *list.List // 存储频率链表中的每一项，确保不重复(set
 }
 
 // Constructor 构造
@@ -77,6 +80,7 @@ func (lfu *LFUCache) Put(key int, value int) {
 // 更新访问频率，将节点进行右移
 func (lfu *LFUCache) increment(e *cacheEntry) {
 	curNode := e.freqParent
+	curIdx := e.orderIndex
 	var nextFreq int
 	var nextNode *list.Element
 
@@ -84,15 +88,15 @@ func (lfu *LFUCache) increment(e *cacheEntry) {
 		nextFreq = 1
 		nextNode = lfu.freqList.Front() // head
 	} else {
-		nextFreq = curNode.Value.(*cacheFreq).freq + 1
+		nextFreq = curNode.Value.(*freqNode).freq + 1
 		nextNode = curNode.Next()
 	}
 
-	if nextNode == nil || nextNode.Value.(*cacheFreq).freq != nextFreq {
+	if nextNode == nil || nextNode.Value.(*freqNode).freq != nextFreq {
 		// create a new list entry
-		newcol := new(cacheFreq)
+		newcol := new(freqNode)
 		newcol.freq = nextFreq
-		newcol.entries = make(map[*cacheEntry]byte)
+		newcol.orderList = list.New()
 		if curNode == nil {
 			nextNode = lfu.freqList.PushFront(newcol)
 		} else {
@@ -101,30 +105,42 @@ func (lfu *LFUCache) increment(e *cacheEntry) {
 	}
 
 	e.freqParent = nextNode
-	nextNode.Value.(*cacheFreq).entries[e] = 1
+	e.orderIndex = nextNode.Value.(*freqNode).orderList.PushBack(e)
 	if curNode != nil {
 		// remove from current position
-		lfu.remove(curNode, e)
+		lfu.remove(curNode, curIdx)
 	}
 }
 
+// 逐出一个节点
 func (lfu *LFUCache) evicts() {
 
 	if item := lfu.freqList.Front(); item != nil {
-		for entry := range item.Value.(*cacheFreq).entries {
-			delete(lfu.mapCache, entry.key)
-			lfu.remove(item, entry)
-			lfu.size--
-			break
-		}
+		delete(lfu.mapCache, item.Value.(*freqNode).orderList.Front().Value.(*cacheEntry).key)
+		lfu.remove(item, item.Value.(*freqNode).orderList.Front())
+		lfu.size--
 	}
 }
 
-func (lfu *LFUCache) remove(listItem *list.Element, e *cacheEntry) {
-	freq := listItem.Value.(*cacheFreq)
-	delete(freq.entries, e)
+func (lfu *LFUCache) remove(freqItem *list.Element, orderItem *list.Element) {
+	freq := freqItem.Value.(*freqNode)
+	freq.orderList.Remove(orderItem)
 
-	if len(freq.entries) == 0 {
-		lfu.freqList.Remove(listItem)
+	if freq.orderList.Len() == 0 {
+		lfu.freqList.Remove(freqItem)
 	}
+}
+
+func (lfu *LFUCache) print() {
+
+	for i := lfu.freqList.Front(); i != nil; i = i.Next() {
+		fmt.Println("freq ", i.Value.(*freqNode).freq)
+		entries := i.Value.(*freqNode).orderList
+		for j := entries.Front(); j != nil; j = j.Next() {
+			fmt.Println("order", j.Value.(*cacheEntry).key, j.Value.(*cacheEntry).value)
+		}
+	}
+
+	fmt.Println("---")
+
 }

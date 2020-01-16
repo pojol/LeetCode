@@ -50,7 +50,7 @@ nextNode = curNode.Next()
 ```go
 // 当下一个节点为空 或者 下一个节点的 freq 值不等于 当前freq+1 （ 没有对应的freq列 时
 if nextNode == nil || nextNode.Value.(*cacheFreq).freq != nextFreq {
-    newcol := new(cacheFreq)
+    newcol := new(cacheFreq)    // 建立新列 (图
 	newcol.freq = nextFreq      // 新列的 freq 值
     newcol.entries = make(map[*cacheEntry]byte)     // 新列的顺序容器 set
     
@@ -58,20 +58,29 @@ if nextNode == nil || nextNode.Value.(*cacheFreq).freq != nextFreq {
         // 将下一个点设置为访问频率的头节点
         nextNode = lfu.freqList.PushFront(newcol)
 	} else {
-        // 将下一个节点设置为原有访问频率节点的后一个节点
+        // 将下一个节点设置为原有访问频率节点的后一个节点 (图 节点变化1
 		nextNode = lfu.freqList.InsertAfter(newcol, curNode)
 	}
 }
 ```
->   4. 
+>   4. 更新
 
 ```go
 // 设置新节点的父节点  
 e.freqParent = nextNode
 // 保存新节点在访问先后的容器中
 nextNode.Value.(*cacheFreq).entries[e] = 1
-// 删除当前列上的节点
-if curNode != nil {
+// 删除当前列上的节点 ( 图 节点变化2
+if curNode != nil { 
 	lfu.remove(curNode, e)
 }
 ```
+
+> **建立新列**
+[![image.png](https://i.postimg.cc/2S5z7f1x/image.png)](https://postimg.cc/kBk37zFV)
+
+> **节点变化1**
+[![image.png](https://i.postimg.cc/Y2gfM5q8/image.png)](https://postimg.cc/4nfh1Fch)
+
+> **节点变化2**
+[![image.png](https://i.postimg.cc/Kjz2rPz8/image.png)](https://postimg.cc/mz0JTFCv)
