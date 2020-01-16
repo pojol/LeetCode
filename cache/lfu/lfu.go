@@ -7,18 +7,19 @@ type LFUCache struct {
 	cap      int
 	size     int
 	mapCache map[int]*cacheEntry
-	freqList *list.List
+	freqList *list.List // 频率链表
 }
 
+// 缓存中的实际对象
 type cacheEntry struct {
 	key        int
 	value      int
-	freqParent *list.Element // 指向访问链表根节点
+	freqParent *list.Element
 }
 
 type cacheFreq struct {
 	freq    int
-	freqMap map[*cacheEntry]byte
+	entries map[*cacheEntry]byte // 存储频率链表中的每一项，确保不重复(set
 }
 
 // Constructor 构造
@@ -73,7 +74,7 @@ func (lfu *LFUCache) Put(key int, value int) {
 
 }
 
-// 将节点进行右移
+// 更新访问频率，将节点进行右移
 func (lfu *LFUCache) increment(e *cacheEntry) {
 	curNode := e.freqParent
 	var nextFreq int
@@ -89,18 +90,18 @@ func (lfu *LFUCache) increment(e *cacheEntry) {
 
 	if nextNode == nil || nextNode.Value.(*cacheFreq).freq != nextFreq {
 		// create a new list entry
-		li := new(cacheFreq)
-		li.freq = nextFreq
-		li.freqMap = make(map[*cacheEntry]byte)
-		if curNode != nil {
-			nextNode = lfu.freqList.InsertAfter(li, curNode)
+		newcol := new(cacheFreq)
+		newcol.freq = nextFreq
+		newcol.entries = make(map[*cacheEntry]byte)
+		if curNode == nil {
+			nextNode = lfu.freqList.PushFront(newcol)
 		} else {
-			nextNode = lfu.freqList.PushFront(li)
+			nextNode = lfu.freqList.InsertAfter(newcol, curNode)
 		}
 	}
 
 	e.freqParent = nextNode
-	nextNode.Value.(*cacheFreq).freqMap[e] = 1
+	nextNode.Value.(*cacheFreq).entries[e] = 1
 	if curNode != nil {
 		// remove from current position
 		lfu.remove(curNode, e)
@@ -110,8 +111,7 @@ func (lfu *LFUCache) increment(e *cacheEntry) {
 func (lfu *LFUCache) evicts() {
 
 	if item := lfu.freqList.Front(); item != nil {
-
-		for entry := range item.Value.(*cacheFreq).freqMap {
+		for entry := range item.Value.(*cacheFreq).entries {
 			delete(lfu.mapCache, entry.key)
 			lfu.remove(item, entry)
 			lfu.size--
@@ -122,9 +122,9 @@ func (lfu *LFUCache) evicts() {
 
 func (lfu *LFUCache) remove(listItem *list.Element, e *cacheEntry) {
 	freq := listItem.Value.(*cacheFreq)
-	delete(freq.freqMap, e)
+	delete(freq.entries, e)
 
-	if len(freq.freqMap) == 0 {
+	if len(freq.entries) == 0 {
 		lfu.freqList.Remove(listItem)
 	}
 }
