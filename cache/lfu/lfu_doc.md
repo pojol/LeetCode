@@ -1,5 +1,10 @@
+## LFU
 
-> 数据结构设计
+* 数据结构设计
+* increment 函数解析
+* 示例图
+
+#### 数据结构设计
 > **map** `哈希`+ **freqList** `使用频次链表`+ **orderList** `访问先后链表`
 
 > 1. 使用双向链表实现，将使用频次最低的节点设置在链表的头尾这样能保证O(1)的时间复杂度内操作这个节点。
@@ -7,23 +12,24 @@
 
 ```go
 /*
-+------+ +--> +---+ +--> +---+ +---> +---+   使用频率
-| head |      | 1 |      | 2 |       | 5 |
-+------+ <--+ +---+ <--+ +---+ <---+ +---+
-                  ^          ^           ^
-              +   +      +   +       +   +
-              v          v           v
-              +---+      +---+       +---+
-              | a |      | c |       | d |
-              +---+      +---+       +---+
-                  ^
-              +   +
-              v
-              +---+
-              | b |
-              +---+ 访问先后
+        +--> +---+ +--> +---+ +---> +---+   使用频率
+            | 1 |      | 2 |       | 5 |
+        <--+ +---+ <--+ +---+ <---+ +---+
+                ^          ^           ^
+            +   +      +   +       +   +
+            v          v           v
+            +---+      +---+       +---+
+            | a |      | c |       | d |
+            +---+      +---+       +---+
+                ^
+            +   +
+            v
+            +---+
+            | b |
+            +---+ 访问先后
 */
 ```
+> 
 
 #### increment
 >   * curNode     当前节点的父节点
@@ -50,9 +56,9 @@ nextNode = curNode.Next()
 ```go
 // 当下一个节点为空 或者 下一个节点的 freq 值不等于 当前freq+1 （ 没有对应的freq列 时
 if nextNode == nil || nextNode.Value.(*cacheFreq).freq != nextFreq {
-    newcol := new(cacheFreq)    // 建立新列 (图
-	newcol.freq = nextFreq      // 新列的 freq 值
-    newcol.entries = make(map[*cacheEntry]byte)     // 新列的顺序容器 set
+    newcol := new(cacheFreq)        // 建立新列 (图
+	newcol.freq = nextFreq          // 新列的 freq 值
+    newcol.entries = list.New()     // 新列中的顺序链表
     
 	if curNode == nil {
         // 将下一个点设置为访问频率的头节点
@@ -68,14 +74,15 @@ if nextNode == nil || nextNode.Value.(*cacheFreq).freq != nextFreq {
 ```go
 // 设置新节点的父节点  
 e.freqParent = nextNode
-// 保存新节点在访问先后的容器中
-nextNode.Value.(*cacheFreq).entries[e] = 1
+// 保存新节点在访问先后的容器中,并且将队列中的位置纪录下来方便下次更新时删除
+e.orderIndex = nextNode.Value.(*freqNode).orderList.PushBack(e)
 // 删除当前列上的节点 ( 图 节点变化2
 if curNode != nil { 
-	lfu.remove(curNode, e)
+	lfu.remove(curNode, e.orderIndex)
 }
 ```
 
+#### 示例图
 > **建立新列**
 [![image.png](https://i.postimg.cc/2S5z7f1x/image.png)](https://postimg.cc/kBk37zFV)
 
@@ -84,3 +91,4 @@ if curNode != nil {
 
 > **节点变化2**
 [![image.png](https://i.postimg.cc/Kjz2rPz8/image.png)](https://postimg.cc/mz0JTFCv)
+
