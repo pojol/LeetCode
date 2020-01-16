@@ -25,7 +25,7 @@
 */
 ```
 
-> * increment
+#### increment
 >   * curNode     当前节点的父节点
 >   * nextFreq    更新后的访问频率值
 >   * nextNode    使用频率链表节点（访问先后链表的根节点
